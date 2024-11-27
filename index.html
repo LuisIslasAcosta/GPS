@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Localización Arduino</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <div id="map" style="height: 500px; width: 100%;"></div>
+  <p id="tiempo"></p>
+
+  <script>
+    const map = L.map('map').setView([0, 0], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    const userMarker = L.marker([0, 0]).addTo(map).bindPopup("Tu ubicación").openPopup();
+    const arduinoMarker = L.marker([0, 0]).addTo(map).bindPopup("Arduino");
+
+    let userLocation = { lat: 0, lng: 0 };
+
+    // Obtener ubicación del usuario
+    function obtenerUbicacionUsuario() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            userLocation.lat = position.coords.latitude;
+            userLocation.lng = position.coords.longitude;
+            userMarker.setLatLng(userLocation);
+            map.setView(userLocation, 15);
+          },
+          () => alert("No se pudo obtener tu ubicación")
+        );
+      }
+    }
+
+    // Actualizar ubicación del Arduino
+    async function actualizarUbicacionArduino() {
+      try {
+        const res = await fetch("https://tu-servidor-gratuito/api/ubicacion");
+        const ubicacion = await res.json();
+        arduinoMarker.setLatLng(ubicacion);
+        calcularTiempo(ubicacion);
+      } catch (error) {
+        console.error("Error al obtener la ubicación del Arduino:", error);
+      }
+    }
+
+    // Calcular tiempo con OSRM
+    async function calcularTiempo(destino) {
+      const rutaURL = `https://router.project-osrm.org/route/v1/driving/${userLocation.lng},${userLocation.lat};${destino.lng},${destino.lat}?overview=false`;
+      try {
+        const res = await fetch(rutaURL);
+        const data = await res.json();
+        if (data.routes && data.routes[0]) {
+          const duracion = data.routes[0].duration / 60; // Convertir a minutos
+          document.getElementById("tiempo").innerText = `Tiempo estimado: ${duracion.toFixed(2)} minutos`;
+        }
+      } catch (error) {
+        console.error("Error al calcular la ruta:", error);
+      }
+    }
+
+    obtenerUbicacionUsuario();
+    setInterval(actualizarUbicacionArduino, 5000);
+  </script>
+</body>
+</html>
